@@ -60,9 +60,16 @@ jobs:
           fi
 
       - name: Unit + integration tests
-        run: npm test
+        shell: bash
         env:
           AGL_REQUIRE_HELPER: '1'
+        run: |
+          set -o pipefail
+          if ! npm test 2>&1 | tee test.log; then
+            # Name the failing tests and their errors as annotations.
+            grep -E "^not ok|^ *not ok|error: |expected:|actual:|Error:" test.log | head -25 | sed 's/^/::error title=tests::/'
+            exit 1
+          fi
 
       - name: Smoke test (launches the app in test mode)
         run: npx electron . --smoke-test
