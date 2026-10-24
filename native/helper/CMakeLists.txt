@@ -7,18 +7,15 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
-# Path to the unzipped Blackmagic ATEM Switchers SDK (the folder that contains
-# Windows/ and Mac OS X/ include directories). Leave empty to build without it;
-# the app then uses its Ethernet (atem-connection) backend only.
-set(AGL_ATEM_SDK_DIR "" CACHE PATH "Blackmagic ATEM Switchers SDK root")
+if(MSVC)
+  # Static runtime: the helper .exe runs without a VC++ redistributable installed.
+  set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endif()
 
 set(COMMON_SOURCES src/main.cpp src/image.cpp)
 set(COMMON_INCLUDES src third_party)
-
 if(MSVC)
   set(COMMON_OPTIONS /W3 /utf-8 /EHsc)
-  # Static runtime: the helper .exe runs without a VC++ redistributable installed.
-  set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 else()
   set(COMMON_OPTIONS -Wall -Wextra -Wno-unused-parameter)
 endif()
@@ -26,25 +23,30 @@ endif()
 find_package(Threads REQUIRED)
 
 # --- Shipped helper -----------------------------------------------------------
-set(SESSION_SOURCE src/session_nosdk.cpp)
+# Uses the Blackmagic ATEM Switchers SDK (vendored headers in sdk/) on Windows and
+# macOS. The SDK library itself comes from the ATEM Switchers software installed
+# on the machine; if it is missing the helper reports "sdk_unavailable" and the app
+# falls back to Ethernet.
+option(AGL_WITH_BLACKMAGIC_SDK "Build agl-helper with the Blackmagic SDK session" ON)
+
+set(SESSION_SOURCES src/session_nosdk.cpp)
 set(SDK_INCLUDES "")
 set(SDK_LIBS "")
 set(AGL_SDK_KIND none)
 
-if(AGL_ATEM_SDK_DIR)
-  if(WIN32)
-    set(SESSION_SOURCE src/session_blackmagic.cpp)
-    # SdkSession implementation is added once the SDK is in hand.
-  elseif(APPLE)
-    set(SESSION_SOURCE src/session_blackmagic.cpp)
-  endif()
-  if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${SESSION_SOURCE}")
-    message(FATAL_ERROR "AGL_ATEM_SDK_DIR is set but ${SESSION_SOURCE} is not implemented yet")
-  endif()
+if(AGL_WITH_BLACKMAGIC_SDK AND WIN32)
+  set(SESSION_SOURCES src/session_blackmagic.cpp)
+  set(SDK_INCLUDES sdk/windows)
+  set(SDK_LIBS ole32 oleaut32)
+  set(AGL_SDK_KIND blackmagic)
+elseif(AGL_WITH_BLACKMAGIC_SDK AND APPLE)
+  set(SESSION_SOURCES src/session_blackmagic.cpp sdk/mac/BMDSwitcherAPIDispatch.cpp)
+  set(SDK_INCLUDES sdk/mac)
+  set(SDK_LIBS "-framework CoreFoundation")
   set(AGL_SDK_KIND blackmagic)
 endif()
 
-add_executable(agl-helper ${COMMON_SOURCES} ${SESSION_SOURCE})
+add_executable(agl-helper ${COMMON_SOURCES} ${SESSION_SOURCES})
 target_include_directories(agl-helper PRIVATE ${COMMON_INCLUDES} ${SDK_INCLUDES})
 target_compile_options(agl-helper PRIVATE ${COMMON_OPTIONS})
 target_link_libraries(agl-helper PRIVATE Threads::Threads ${SDK_LIBS})

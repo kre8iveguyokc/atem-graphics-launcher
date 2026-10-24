@@ -210,6 +210,9 @@ async function runSmokeTest() {
     } catch (e) {
       if (e.code === 'helper_missing' && process.env.AGL_REQUIRE_HELPER === '1') return fail(`helper missing at ${helperPath()}`)
       if (e.code === 'timeout') return fail('helper did not answer')
+      if (process.env.AGL_EXPECT_SDK === '1' && helper.helperInfo?.sdk !== 'blackmagic') {
+        return fail(`helper was built without the Blackmagic SDK (sdk=${helper.helperInfo?.sdk})`)
+      }
       helperNote = `helper ${helper.helperInfo ? `sdk=${helper.helperInfo.sdk}` : 'absent'}: ${e.message}`
     }
     console.log(`SMOKE: ${helperNote}`)

@@ -46,9 +46,9 @@ jobs:
       - name: Install
         run: npm ci
 
-      # Native SDK helper. Until the Blackmagic SDK is added (AGL_ATEM_SDK_DIR), the shipped
-      # helper reports "SDK not included" and the app uses its Ethernet backend.
-      # agl-helper-mock (simulated switcher) is built for tests only and never packaged.
+      # Native helper with the Blackmagic ATEM Switchers SDK session (vendored headers in
+      # native/helper/sdk). agl-helper-mock (simulated switcher) is built for tests only
+      # and never packaged.
       - name: Build SDK helper
         shell: bash
         run: |
@@ -71,10 +71,13 @@ jobs:
             exit 1
           fi
 
+      # Also proves the shipped helper contains the Blackmagic SDK session. CI machines have
+      # no ATEM software installed, so it must report that cleanly rather than hang or crash.
       - name: Smoke test (launches the app in test mode)
         run: npx electron . --smoke-test
         env:
           AGL_REQUIRE_HELPER: '1'
+          AGL_EXPECT_SDK: '1'
 
       - name: Package
         run: npm run ${{ matrix.dist }}
