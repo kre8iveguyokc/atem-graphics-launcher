@@ -50,7 +50,14 @@ jobs:
       # helper reports "SDK not included" and the app uses its Ethernet backend.
       # agl-helper-mock (simulated switcher) is built for tests only and never packaged.
       - name: Build SDK helper
-        run: npm run helper:build
+        shell: bash
+        run: |
+          set -o pipefail
+          if ! npm run helper:build 2>&1 | tee helper-build.log; then
+            # Surface compiler errors as annotations (visible without downloading logs).
+            grep -iE "error" helper-build.log | head -15 | sed 's/^/::error title=helper build::/'
+            exit 1
+          fi
 
       - name: Unit + integration tests
         run: npm test

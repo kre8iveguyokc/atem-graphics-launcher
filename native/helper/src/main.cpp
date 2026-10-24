@@ -80,7 +80,9 @@ class FrameCache {
       err = "cannot read file";
       return nullptr;
     }
-    const auto mtime = fs::last_write_time(p, ec).time_since_epoch().count();
+    // libc++ (macOS) uses a 128-bit rep for file times; normalise to 64-bit nanoseconds.
+    const long long mtime = static_cast<long long>(
+        std::chrono::duration_cast<std::chrono::nanoseconds>(fs::last_write_time(p, ec).time_since_epoch()).count());
     const std::string sig = std::to_string(size) + ":" + std::to_string(mtime) + ":" + std::to_string(int(layout));
     auto it = map_.find(path);
     if (it != map_.end()) {
