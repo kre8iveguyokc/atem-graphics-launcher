@@ -1,0 +1,57 @@
+{
+  "name": "atem-graphics-launcher",
+  "productName": "ATEM Graphics Launcher",
+  "version": "1.0.0",
+  "description": "Click a PNG to replace the still in ATEM media pool slot 1 or 2 (Blackmagic ATEM Mini Extreme ISO).",
+  "main": "src/main/main.js",
+  "author": "kre8iveguyokc",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "start:test-mode": "electron . --test-mode",
+    "test": "node --test",
+    "smoke": "electron . --smoke-test",
+    "fixtures": "node scripts/make-fixtures.js",
+    "dist:win": "electron-builder --win portable --x64 --publish never",
+    "dist:mac:x64": "electron-builder --mac zip --x64 --publish never",
+    "dist:mac:arm64": "electron-builder --mac zip --arm64 --publish never"
+  },
+  "dependencies": {
+    "atem-connection": "3.10.3",
+    "pngjs": "7.0.0"
+  },
+  "devDependencies": {
+    "electron": "45.0.0",
+    "electron-builder": "26.18.0"
+  },
+  "build": {
+    "appId": "com.kre8iveguyokc.atemgraphicslauncher",
+    "productName": "ATEM Graphics Launcher",
+    "npmRebuild": false,
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "test/fixtures",
+        "to": "sample-graphics"
+      }
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "artifactName": "ATEM-Graphics-Launcher-${version}-win-x64.exe"
+    },
+    "portable": {
+      "artifactName": "ATEM-Graphics-Launcher-${version}-win-x64.exe"
+    },
+    "mac": {
+      "category": "public.app-category.video",
+      "identity": null,
+      "artifactName": "ATEM-Graphics-Launcher-${version}-mac-${arch}.zip"
+    }
+  }
+}

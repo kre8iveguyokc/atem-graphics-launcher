@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; img-src 'self' thumb: data:; style-src 'self'; script-src 'self'"
+    />
+    <title>ATEM Graphics Launcher</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div id="test-banner" class="test-banner" hidden>TEST MODE · simulated switcher · nothing is sent to the ATEM</div>
+
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span class="brand-name">ATEM Graphics Launcher</span>
+      </div>
+      <button id="conn" class="conn" title="Reconnect">
+        <span class="dot"></span><span id="conn-text">Disconnected</span>
+      </button>
+      <div class="spacer"></div>
+      <input id="filter" class="filter" type="search" placeholder="Filter graphics  ( / )" autocomplete="off" />
+      <button id="btn-folder" class="btn">Choose folder…</button>
+      <button id="btn-reload" class="btn icon" title="Reload folder" aria-label="Reload folder">⟳</button>
+      <button id="btn-settings" class="btn icon" title="Settings" aria-label="Settings">⚙</button>
+    </header>
+
+    <section class="slots" aria-label="Destination">
+      <button class="slot" data-slot="1" aria-pressed="true">
+        <span class="slot-key">1</span>
+        <span class="slot-body">
+          <span class="slot-title">SLOT 1 <small>Still 1 → Media Player 1</small></span>
+          <span class="slot-now" data-now>—</span>
+          <span class="slot-status" data-status>Idle</span>
+        </span>
+        <span class="slot-bar" data-bar></span>
+      </button>
+      <button class="slot" data-slot="2" aria-pressed="false">
+        <span class="slot-key">2</span>
+        <span class="slot-body">
+          <span class="slot-title">SLOT 2 <small>Still 2 → Media Player 2</small></span>
+          <span class="slot-now" data-now>—</span>
+          <span class="slot-status" data-status>Idle</span>
+        </span>
+        <span class="slot-bar" data-bar></span>
+      </button>
+    </section>
+
+    <div id="safety" class="safety" hidden></div>
+
+    <main id="grid" class="grid" aria-label="Graphics"></main>
+
+    <div id="empty" class="empty" hidden>
+      <h2>No graphics loaded</h2>
+      <p>Choose the folder that holds the show's PNG files.</p>
+      <div class="empty-actions">
+        <button id="empty-choose" class="btn primary">Choose folder…</button>
+        <button id="empty-sample" class="btn" hidden>Load sample graphics</button>
+      </div>
+    </div>
+
+    <footer class="footer">
+      <span id="folder-label" class="folder-label">No folder</span>
+      <span class="spacer"></span>
+      <span id="prefetch"></span>
+      <span class="hint">Click = send to selected slot · Shift+click = other slot · 1 / 2 = pick slot</span>
+      <span id="version"></span>
+    </footer>
+
+    <dialog id="settings" class="settings">
+      <form method="dialog" id="settings-form">
+        <h2>Settings</h2>
+        <label class="field">
+          <span>ATEM IP address</span>
+          <input id="set-ip" type="text" inputmode="decimal" spellcheck="false" required />
+        </label>
+        <p class="note">Ethernet. For a direct laptop-to-ATEM cable, give the laptop a fixed address on the same subnet.</p>
+        <label class="toggle">
+          <input id="set-test" type="checkbox" />
+          <span>Test mode (simulated switcher, no hardware)</span>
+        </label>
+        <p class="note">Test mode is never remembered: the app always starts live.</p>
+        <div class="settings-actions">
+          <button value="cancel" class="btn">Cancel</button>
+          <button id="set-save" value="save" class="btn primary">Save &amp; connect</button>
+        </div>
+      </form>
+    </dialog>
+
+    <div id="toast" class="toast" hidden></div>
+
+    <script src="renderer.js"></script>
+  </body>
+</html>

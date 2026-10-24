@@ -1,0 +1,64 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: ${{ matrix.label }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: Windows x64
+            os: windows-latest
+            dist: dist:win
+            artifact: ATEM-Graphics-Launcher-windows-x64
+            files: dist/*.exe
+          - label: macOS Intel x64
+            os: macos-15-intel
+            dist: dist:mac:x64
+            artifact: ATEM-Graphics-Launcher-macos-intel-x64
+            files: dist/*.zip
+          - label: macOS Apple Silicon arm64
+            os: macos-latest
+            dist: dist:mac:arm64
+            artifact: ATEM-Graphics-Launcher-macos-arm64
+            files: dist/*.zip
+    runs-on: ${{ matrix.os }}
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Smoke test (launches the app in test mode)
+        run: npx electron . --smoke-test
+
+      - name: Package
+        run: npm run ${{ matrix.dist }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.files }}
+          if-no-files-found: error
+          retention-days: 30
