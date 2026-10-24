@@ -1,30 +1,36 @@
-# Blackmagic SDK integration status
+# Blackmagic SDK integration
 
-## Done (works today)
+## Status
 
-- `agl-helper` process, protocol, PNG decode, frame cache, one-transfer-at-a-time handling (`native/helper/src`).
-- `Session` interface: the only boundary between the helper and a switcher (`session.h`). It allows connect, read state and still upload, nothing else.
-- No-SDK session (shipped until the SDK is added): reports "SDK not included" so the app falls back to Ethernet.
-- Mock session (`agl-helper-mock`, tests only) used by CI on Windows, Intel Mac and Apple Silicon.
-- App side: `HelperBackend` and `FallbackBackend` with the connection order SDK USB → SDK Ethernet → atem-connection Ethernet, automatic retry, and return to USB after a drop.
-- Guard test that fails the build if helper code calls SDK switching, keying or routing methods.
+Implemented against the **Blackmagic ATEM Switchers SDK 11.0** (`native/helper/src/session_blackmagic.cpp`), built into the Windows and macOS helpers by CI. **Not yet run against a real switcher**: see [HARDWARE_TEST.md](HARDWARE_TEST.md).
 
-## Remaining (needs the SDK zip)
+## What the helper does with the SDK
 
-1. `native/helper/src/session_blackmagic.cpp` implementing `Session` with:
-   - `IBMDSwitcherDiscovery::ConnectTo` (empty address = USB only, manual p. 58)
-   - read-only: video mode → width/height, product name, `IBMDSwitcherMediaPlayer` source (get only), still names
-   - stills upload per manual §4.1.1 (p. 206): `GetStills` → `Lock` (wait for lock callback) → `CreateFrame` → fill buffer → `Upload` → wait for transfer completed/failed callback → `Unlock`
-   - callbacks for disconnect and media pool/player changes
-   - `frameLayout()` set to whatever `CreateFrame`'s pixel format needs (§4.2.1, p. 207)
-2. Windows: COM (`CoCreateInstance(CLSID_CBMDSwitcherDiscovery)`), interfaces from the SDK's `BMDSwitcherAPI.idl` (MIDL output or the SDK's generated headers).
-3. macOS: the SDK's `BMDSwitcherAPIDispatch.cpp`, which loads the switcher API bundle installed with ATEM Software Control.
-4. CMake: `AGL_ATEM_SDK_DIR` include paths and platform libraries; CI access to the SDK headers.
-5. Confirm actual runtime dependencies (which Blackmagic install provides the API on each OS, and version matching with switcher firmware).
+| Step | SDK call | Notes |
+|---|---|---|
+| Load | Windows: `CoCreateInstance(CBMDSwitcherDiscovery)` (COM, multithreaded apartment). macOS: `CreateBMDSwitcherDiscoveryInstance()` from `BMDSwitcherAPIDispatch.cpp`, which loads `/Library/Application Support/Blackmagic Design/Switchers/BMDSwitcherAPI.bundle`. | Fails with `sdk_unavailable` if the ATEM Switchers software isn't installed, or is older than the SDK. |
+| Connect | `IBMDSwitcherDiscovery::ConnectTo` | Empty address = USB only (manual §2.3.1.1). With an IP, the SDK tries the network and then falls back to USB on its own. |
+| Read state | `IBMDSwitcher::GetVideoMode`, `GetProductName`; `IBMDSwitcherMediaPlayer::GetSource`; `IBMDSwitcherStills::GetCount`, `IsValid`, `GetName` | Read-only. |
+| Watch | `AddCallback` on switcher (disconnect, video mode), stills (name/valid, transfer results), media players (source changed) | Callbacks arrive on SDK threads; the helper never calls the SDK from them. |
+| Upload | `CreateFrame(8BitARGB)` → fill → `IBMDSwitcherStills::Lock` → wait for `Obtained` → `Upload` → wait for `TransferCompleted` / `Failed` / `Cancelled` → `Unlock` | Manual §4.1.1. Frame prepared before locking, as Blackmagic's sample advises. Lock wait 10 s, transfer wait 60 s, then `CancelTransfer`. One transfer at a time (manual §4.3.8.9). |
 
-## Open questions to answer from the SDK
+Nothing else is called. `test/noControl.test.js` fails the build if helper code uses switching, keying, routing, macro, media-player-source or clear methods.
 
-- Exact pixel format and whether `CreateFrame` expects premultiplied alpha.
-- Lock behaviour when ATEM Software Control holds the stills lock.
-- Whether a `ConnectTo` with an IP silently falls back to USB (manual says it tries USB if the network fails), and whether the SDK reports which transport was used.
-- Whether redistributing the SDK headers in this repo is allowed, or CI needs them from a private location.
+## Findings from the SDK
+
+- **On-air replacement:** Blackmagic's SwitcherMediaPool sample states that when uploading to a still a media player is showing, the player keeps the existing still until the upload completes and then swaps to the new one. That is the behaviour this app relies on.
+- **Pixel format:** `bmdSwitcherPixelFormat8BitARGB`, four bytes per pixel. Blackmagic's samples fill it with B,G,R,A bytes in memory (straight copy of 32-bit TGA data); the helper does the same. The SDK says nothing about premultiplication: pixel values are passed through unchanged, so premultiplied PNGs stay premultiplied and the keyer's **Pre-multiplied** setting must be on.
+- **Runtime dependency:** the SDK library is installed with Blackmagic's product software and the app links to whatever version is installed (manual §1.1). Show laptops need the ATEM Switchers software at the SDK's version (11.0) or newer.
+- **Video mode → frame size:** derived from the mode's four-character code (`10p9` → 1920×1080, `72p0` → 1280×720, `4H59` → 3840×2160, etc.).
+
+## Vendored files
+
+`native/helper/sdk/` holds only the headers needed to build, under Blackmagic's permissive SDK license (see its README). The Windows header is Blackmagic's own MIDL output from their samples; its interface GUIDs were checked against the IDL.
+
+## To verify on hardware
+
+- USB-only connection, and Ethernet via the SDK.
+- Upload timing over USB vs Ethernet.
+- On-air swap is clean (no flash, tear or partial frame).
+- Behaviour when ATEM Software Control holds the stills lock.
+- Which ATEM Switchers software versions work with SDK 11.0 (oldest version that connects).

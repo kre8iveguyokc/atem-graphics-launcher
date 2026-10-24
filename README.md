@@ -51,9 +51,9 @@ The app tries, in order, and uses the first that works:
 
 The pill at the top shows which one is in use, e.g. **Connected · USB · Blackmagic SDK**. If the connection drops, the app searches again from the top, so plugging USB back in returns to USB.
 
-> **Status:** the Blackmagic SDK part (1 and 2) is built and tested against a simulated switcher, but this version ships **without** the SDK library code until the SDK download is added. Until then the app connects by option 3 only. See [docs/SDK_INTEGRATION.md](docs/SDK_INTEGRATION.md).
+> **Status:** the Blackmagic SDK connection (1 and 2) is built into the Windows and Mac apps but has not yet been tried on a real switcher. Run the [hardware checklist](docs/HARDWARE_TEST.md) first. Details: [docs/SDK_INTEGRATION.md](docs/SDK_INTEGRATION.md).
 
-**Prerequisite for USB / SDK:** Blackmagic's ATEM Switchers software (ATEM Software Control) must be installed on the laptop. The SDK uses the switcher library that comes with it.
+**Prerequisite for USB / SDK:** Blackmagic's ATEM Switchers software (ATEM Software Control) **version 11.0 or newer** must be installed on the laptop. The SDK uses the switcher library that comes with it. Without it, the app skips straight to option 3.
 
 **For Ethernet:** laptop and ATEM on the same network, or a direct cable from the laptop (USB-C Ethernet adapter is fine) to the ATEM's Ethernet port, with the laptop on a fixed IP in the same subnet. Example: ATEM `192.168.10.240`, laptop `192.168.10.50`, mask `255.255.255.0`.
 
@@ -91,13 +91,14 @@ Test mode is never remembered: the app always starts in live mode.
 |---|---|
 | Ethernet upload path | Uses `atem-connection` 3.10.3 `Atem.uploadStill()`, the same library Bitfocus Companion and Sofie use to upload stills. |
 | SDK helper, connection order, fallback | Tested in CI on all three platforms against a simulated switcher: USB → Ethernet → atem-connection, retries, return to USB after a drop, helper crash handling. |
-| **Blackmagic SDK calls** | **Not written yet.** Waiting for the SDK download ([status](docs/SDK_INTEGRATION.md)). |
+| Blackmagic SDK session | Written against SDK 11.0 following Blackmagic's manual and media pool sample; compiles on Windows and macOS in CI. ([details](docs/SDK_INTEGRATION.md)) |
+| **SDK upload on a real switcher (USB and Ethernet)** | **Not verified yet.** Covered by the hardware checklist. |
 | Image encoding | Tested: output is byte-identical to `atem-connection`'s own encoder. PNG pixels are passed through exactly, no premultiply or colour change. |
 | Latest-click-wins, retries, one transfer at a time | Tested (unit tests). |
 | Never sends control commands | Tested: source scans of the app and the native helper, plus a mock switcher that fails on any call except connect / upload. |
 | App launch, packaged native modules and helper | Smoke-tested on every build platform in CI. |
 | **Upload to a real ATEM Mini Extreme ISO** | **Not verified yet.** No hardware was available. Run [the hardware checklist](docs/HARDWARE_TEST.md) before first live use. |
-| **On-air overwrite behaviour** | **Not verified yet.** Expected to swap cleanly when the transfer completes. Covered by the checklist. |
+| **On-air overwrite behaviour** | **Not verified yet.** Blackmagic's SDK sample documents that a media player keeps the old still until the upload completes, then swaps. Covered by the checklist. |
 
 ## Development
 

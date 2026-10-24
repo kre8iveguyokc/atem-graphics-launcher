@@ -39,13 +39,13 @@ Fill in the result column and keep this with the show notes.
 | 14 | Upload from ATEM Software Control and click in the app at the same time. | Both finish, or the app reports an error and works on the next click. | |
 | 15 | Confirm the app changed nothing else (program/preview, keyers, transitions, MP assignments). | Nothing changed. | |
 
-## USB-C / Blackmagic SDK (only for builds that include the SDK)
+## USB-C / Blackmagic SDK
 
 Check the pill: it should name the connection in use. Repeat steps 5–11 on USB as well as Ethernet.
 
 | # | Step | Expected | Result |
 |---|---|---|---|
-| 16 | ATEM Software Control installed. Connect **only** USB-C, clear the IP in Settings. | Pill: **Connected · USB · Blackmagic SDK**. | |
+| 16 | ATEM Software Control 11.0 or newer installed. Connect **only** USB-C, clear the IP in Settings. | Pill: **Connected · USB · Blackmagic SDK**. | |
 | 17 | Steps 5–11 over USB. | Same results as Ethernet. Note transfer times. | USB time: |
 | 18 | Connect USB and Ethernet, IP set. | USB is used. | |
 | 19 | Unplug USB while Ethernet is connected. | Within a few seconds: **Connected · Ethernet · Blackmagic SDK**. Clicking still works. | |
