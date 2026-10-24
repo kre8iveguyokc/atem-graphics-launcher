@@ -1,7 +1,7 @@
 {
   "name": "atem-graphics-launcher",
   "productName": "ATEM Graphics Launcher",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Click a PNG to replace the still in ATEM media pool slot 1 or 2 (Blackmagic ATEM Mini Extreme ISO).",
   "main": "src/main/main.js",
   "author": "kre8iveguyokc",
@@ -10,9 +10,10 @@
   "scripts": {
     "start": "electron .",
     "start:test-mode": "electron . --test-mode",
-    "test": "node --test",
+    "test": "node --test --test-timeout=30000",
     "smoke": "electron . --smoke-test",
     "fixtures": "node scripts/make-fixtures.js",
+    "helper:build": "cmake -S native/helper -B native/helper/build -DCMAKE_BUILD_TYPE=Release && cmake --build native/helper/build --config Release && node scripts/stage-helper.js",
     "dist:win": "electron-builder --win portable --x64 --publish never",
     "dist:mac:x64": "electron-builder --mac zip --x64 --publish never",
     "dist:mac:arm64": "electron-builder --mac zip --arm64 --publish never"
@@ -37,6 +38,14 @@
       {
         "from": "test/fixtures",
         "to": "sample-graphics"
+      },
+      {
+        "from": "native/helper/dist",
+        "to": "helper",
+        "filter": [
+          "agl-helper",
+          "agl-helper.exe"
+        ]
       }
     ],
     "directories": {

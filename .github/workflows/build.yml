@@ -46,11 +46,21 @@ jobs:
       - name: Install
         run: npm ci
 
-      - name: Unit tests
+      # Native SDK helper. Until the Blackmagic SDK is added (AGL_ATEM_SDK_DIR), the shipped
+      # helper reports "SDK not included" and the app uses its Ethernet backend.
+      # agl-helper-mock (simulated switcher) is built for tests only and never packaged.
+      - name: Build SDK helper
+        run: npm run helper:build
+
+      - name: Unit + integration tests
         run: npm test
+        env:
+          AGL_REQUIRE_HELPER: '1'
 
       - name: Smoke test (launches the app in test mode)
         run: npx electron . --smoke-test
+        env:
+          AGL_REQUIRE_HELPER: '1'
 
       - name: Package
         run: npm run ${{ matrix.dist }}

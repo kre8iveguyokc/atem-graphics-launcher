@@ -41,18 +41,27 @@ Done in ATEM Software Control or on the switcher. The app checks this but never 
 
 If either media player isn't on its still, the app shows a yellow **Check the switcher** bar.
 
-## Network
+## Connection
 
-The app talks to the ATEM over **Ethernet**. Either:
+The app tries, in order, and uses the first that works:
 
-- Laptop and ATEM on the same network, or
-- A direct cable from the laptop (USB-C Ethernet adapter is fine) to the ATEM's Ethernet port, with the laptop given a fixed IP in the same subnet. Example: ATEM `192.168.10.240`, laptop `192.168.10.50`, mask `255.255.255.0`.
+1. **USB-C** through the official Blackmagic ATEM Switchers SDK
+2. **Ethernet** through the Blackmagic SDK (needs the IP in Settings)
+3. **Ethernet** through atem-connection (needs the IP in Settings)
+
+The pill at the top shows which one is in use, e.g. **Connected · USB · Blackmagic SDK**. If the connection drops, the app searches again from the top, so plugging USB back in returns to USB.
+
+> **Status:** the Blackmagic SDK part (1 and 2) is built and tested against a simulated switcher, but this version ships **without** the SDK library code until the SDK download is added. Until then the app connects by option 3 only. See [docs/SDK_INTEGRATION.md](docs/SDK_INTEGRATION.md).
+
+**Prerequisite for USB / SDK:** Blackmagic's ATEM Switchers software (ATEM Software Control) must be installed on the laptop. The SDK uses the switcher library that comes with it.
+
+**For Ethernet:** laptop and ATEM on the same network, or a direct cable from the laptop (USB-C Ethernet adapter is fine) to the ATEM's Ethernet port, with the laptop on a fixed IP in the same subnet. Example: ATEM `192.168.10.240`, laptop `192.168.10.50`, mask `255.255.255.0`.
 
 ATEM Software Control can stay connected at the same time.
 
 ## Running a live event
 
-1. Open the app. The pill at the top turns **green: Connected · <IP>**. If not: ⚙ Settings → enter the ATEM IP → **Save & connect**.
+1. Open the app. The pill at the top turns **green: Connected · <connection>**. If it keeps saying **No switcher found**: check the cable, then ⚙ Settings → enter the ATEM IP → **Save & connect**. Hover the pill to see why each connection type failed.
 2. **Choose folder…** and pick the show's graphics folder (all PNGs at the switcher's resolution, premultiplied alpha). The folder is remembered.
 3. Wait for the footer to say **Ready: N pre-encoded**. Clicks before that still work, they just take a moment longer.
 4. Pick the destination: click **SLOT 1** / **SLOT 2**, or press **1** / **2**.
@@ -80,11 +89,13 @@ Test mode is never remembered: the app always starts in live mode.
 
 | Area | Status |
 |---|---|
-| Upload path | Uses `atem-connection` 3.10.3 `Atem.uploadStill()`, the same library Bitfocus Companion and Sofie use to upload stills. |
+| Ethernet upload path | Uses `atem-connection` 3.10.3 `Atem.uploadStill()`, the same library Bitfocus Companion and Sofie use to upload stills. |
+| SDK helper, connection order, fallback | Tested in CI on all three platforms against a simulated switcher: USB → Ethernet → atem-connection, retries, return to USB after a drop, helper crash handling. |
+| **Blackmagic SDK calls** | **Not written yet.** Waiting for the SDK download ([status](docs/SDK_INTEGRATION.md)). |
 | Image encoding | Tested: output is byte-identical to `atem-connection`'s own encoder. PNG pixels are passed through exactly, no premultiply or colour change. |
 | Latest-click-wins, retries, one transfer at a time | Tested (unit tests). |
-| Never sends control commands | Tested: a source scan plus a mock switcher that fails on any call except connect / upload. |
-| App launch, packaged native modules | Smoke-tested on every build platform in CI. |
+| Never sends control commands | Tested: source scans of the app and the native helper, plus a mock switcher that fails on any call except connect / upload. |
+| App launch, packaged native modules and helper | Smoke-tested on every build platform in CI. |
 | **Upload to a real ATEM Mini Extreme ISO** | **Not verified yet.** No hardware was available. Run [the hardware checklist](docs/HARDWARE_TEST.md) before first live use. |
 | **On-air overwrite behaviour** | **Not verified yet.** Expected to swap cleanly when the transfer completes. Covered by the checklist. |
 
@@ -92,6 +103,7 @@ Test mode is never remembered: the app always starts in live mode.
 
 ```bash
 npm install
+npm run helper:build     # needs CMake and a C++ compiler
 npm start                 # live mode
 npm run start:test-mode   # simulated switcher
 npm test                  # unit tests
@@ -104,7 +116,10 @@ Code map:
 - `src/main/launcher.js` – ties switcher, pre-encode cache and upload queue together
 - `src/main/uploadController.js` – latest-click-wins queue with retries
 - `src/main/encoder.js` – PNG decode + ATEM encoding, background pre-encode cache
-- `src/main/backends/atemBackend.js` – the only code that talks to the switcher
+- `src/main/backends/fallbackBackend.js` – connection order and automatic fallback
+- `src/main/backends/helperBackend.js` – drives the native SDK helper process
+- `src/main/backends/atemBackend.js` – Ethernet via atem-connection
+- `native/helper/` – C++ helper for the Blackmagic SDK ([protocol](docs/HELPER_PROTOCOL.md))
 - `src/main/backends/testBackend.js` – simulator for test mode
 - `src/main/safety.js` – read-only routing checks
 - `src/renderer/` – operator UI

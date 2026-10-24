@@ -115,8 +115,10 @@ test('double-click on the graphic already sending does not queue a duplicate', a
   const backend = new EventEmitter()
   Object.assign(backend, {
     status: 'connected',
+    transport: 'fake',
     getResolution: () => ({ width: 1920, height: 1080 }),
-    uploadStill: () => new Promise((r) => (release = r)),
+    prepareFiles: async () => {},
+    uploadFile: () => new Promise((r) => (release = r)),
     disconnect: async () => {},
   })
   const launcher = new Launcher({ backend })

@@ -207,10 +207,10 @@ function renderConnection(c) {
   const where = c.testMode ? 'TEST MODE' : c.address
   const label =
     {
-      connected: `Connected · ${where}`,
-      connecting: `Connecting · ${where}`,
+      connected: c.testMode ? 'Connected · TEST MODE' : `Connected · ${c.transport || ''}${c.address && c.address !== 'USB' ? ` · ${c.address}` : ''}`,
+      connecting: c.testMode ? 'Connecting · TEST MODE' : 'Looking for switcher (USB, then Ethernet)…',
       disconnected: `Disconnected · ${where}`,
-      error: `Error · ${where}`,
+      error: 'No switcher found · retrying',
     }[c.status] || c.status
   $('#conn-text').textContent = label
   connBtn.title = c.message ? `${c.message}\nClick to reconnect` : 'Click to reconnect'

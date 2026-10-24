@@ -3,25 +3,27 @@
 const { EventEmitter } = require('events')
 const path = require('path')
 const { UploadController } = require('./uploadController')
-const { EncodedCache } = require('./encoder')
 const { evaluateSafety } = require('./safety')
 const { listPngs, stillNameFor } = require('./library')
 
 const DESCRIPTION = 'ATEM Graphics Launcher'
 
 /**
- * Glue between the switcher backend, the pre-encode cache and the upload scheduler.
+ * Glue between the switcher backend and the upload scheduler.
  * Kept free of Electron so it can be tested headless.
+ *
+ * A backend provides: status, address, state, transport, connect(address), disconnect(),
+ * getResolution(), prepareFiles(paths, opts), clearPrepared(), uploadFile(stillIndex, path, name, description),
+ * and emits 'connection' and 'state'.
  *
  * Events: 'upload' (status event + fileName), 'connection', 'safety', 'prefetch'
  */
 class Launcher extends EventEmitter {
-  constructor({ backend, cache = new EncodedCache(), maxRetries = 2, retryDelayMs = 250 } = {}) {
+  constructor({ backend, maxRetries = 2, retryDelayMs = 250 } = {}) {
     super()
-    this.cache = cache
     this.files = []
     this.folder = ''
-    this._resKey = ''
+    this._prepKey = ''
     this.controller = new UploadController({
       upload: (slot, job) => this._upload(slot, job),
       maxRetries,
@@ -32,10 +34,12 @@ class Launcher extends EventEmitter {
     })
     this._onConnection = (evt) => {
       this.emit('connection', { ...evt, testMode: Boolean(this.backend?.isTestMode) })
+      if (evt.status === 'connected') this._maybePrepare()
+      else this._prepKey = '' // re-prepare after reconnect (it may be a different transport)
     }
     this._onState = (state) => {
       this.emit('safety', evaluateSafety(state))
-      this._maybePrefetch()
+      this._maybePrepare()
     }
     if (backend) this.setBackend(backend)
   }
@@ -48,6 +52,7 @@ class Launcher extends EventEmitter {
       await this.backend.disconnect()
     }
     this.backend = backend
+    this._prepKey = ''
     backend.on('connection', this._onConnection)
     backend.on('state', this._onState)
   }
@@ -59,8 +64,8 @@ class Launcher extends EventEmitter {
   loadFolder(folder) {
     this.folder = folder
     this.files = listPngs(folder)
-    this._resKey = '' // force a fresh prefetch for the new folder
-    this._maybePrefetch()
+    this._prepKey = '' // force a fresh prepare for the new folder
+    this._maybePrepare()
     return this.files
   }
 
@@ -77,29 +82,29 @@ class Launcher extends EventEmitter {
   }
 
   async _upload(slot, job) {
-    const resolution = this.backend.getResolution()
-    if (!resolution) {
-      const err = new Error('Switcher not ready (video mode unknown). Check the connection.')
-      err.noRetry = this.backend.status !== 'connected'
+    if (this.backend.status !== 'connected') {
+      const err = new Error('Not connected to the switcher')
+      err.noRetry = true
       throw err
     }
-    const encoded = this.cache.get(job.path, resolution)
-    await this.backend.uploadStill(slot - 1, encoded, stillNameFor(job.name), DESCRIPTION)
+    await this.backend.uploadFile(slot - 1, job.path, stillNameFor(job.name), DESCRIPTION)
   }
 
-  _maybePrefetch() {
-    const res = this.backend?.getResolution?.()
-    if (!res || this.files.length === 0) return
-    const key = `${res.width}x${res.height}|${this.folder}`
-    if (key === this._resKey) return
-    this._resKey = key
+  _maybePrepare() {
+    const backend = this.backend
+    if (!backend || backend.status !== 'connected' || this.files.length === 0) return
+    const res = backend.getResolution?.()
+    if (!res) return
+    const key = `${backend.transport}|${res.width}x${res.height}|${this.folder}`
+    if (key === this._prepKey) return
+    this._prepKey = key
     const files = this.files.map((f) => f.path)
-    this.cache
-      .prefetch(files, res, {
+    Promise.resolve(
+      backend.prepareFiles(files, {
         shouldPause: () => this.controller.busy,
         onProgress: (done, total) => this.emit('prefetch', { done, total }),
       })
-      .catch(() => {})
+    ).catch(() => {})
   }
 
   async shutdown() {

@@ -1,18 +1,19 @@
 'use strict'
 
 const { EventEmitter } = require('events')
+const { EncodedCache } = require('../encoder')
 
 /**
- * Real hardware backend built on atem-connection.
+ * Ethernet backend built on atem-connection (open-source ATEM protocol).
  *
- * This class deliberately exposes ONLY: connect, disconnect, read state, and
- * uploadStill. It never sends switching commands (no keyers, program/preview,
- * transitions or media-player assignments). test/noControl.test.js enforces that.
+ * Exposes ONLY: connect, disconnect, read state, and still upload. It never sends
+ * switching commands (no keyers, program/preview, transitions or media-player
+ * assignments). test/noControl.test.js and test/atemBackend.test.js enforce that.
  *
- * Events: 'connection' ({ status, address, message? }), 'state' (AtemState)
+ * Events: 'connection' ({ status, address, transport, message? }), 'state' (AtemState)
  */
 class AtemBackend extends EventEmitter {
-  constructor({ AtemClass, getVideoModeInfo } = {}) {
+  constructor({ AtemClass, getVideoModeInfo, cache = new EncodedCache() } = {}) {
     super()
     if (!AtemClass || !getVideoModeInfo) {
       const lib = require('atem-connection')
@@ -21,10 +22,12 @@ class AtemBackend extends EventEmitter {
     }
     this._AtemClass = AtemClass
     this._getVideoModeInfo = getVideoModeInfo
+    this._cache = cache
     this._atem = null
     this._address = ''
     this._status = 'disconnected'
     this.isTestMode = false
+    this.transport = 'Ethernet · atem-connection'
   }
 
   get status() {
@@ -41,7 +44,7 @@ class AtemBackend extends EventEmitter {
 
   _setStatus(status, message) {
     this._status = status
-    this.emit('connection', { status, address: this._address, message })
+    this.emit('connection', { status, address: this._address, transport: this.transport, message })
   }
 
   async connect(address) {
@@ -65,7 +68,7 @@ class AtemBackend extends EventEmitter {
     })
     atem.on('error', (msg) => {
       if (this._atem !== atem) return
-      this.emit('connection', { status: this._status, address, message: String(msg) })
+      this.emit('connection', { status: this._status, address, transport: this.transport, message: String(msg) })
     })
     this._setStatus('connecting')
     try {
@@ -97,18 +100,31 @@ class AtemBackend extends EventEmitter {
     return info ? { width: info.width, height: info.height } : null
   }
 
+  /** Pre-encode graphics in the background so a click goes straight to the network. */
+  prepareFiles(paths, opts = {}) {
+    const res = this.getResolution()
+    if (!res) return Promise.resolve({ done: 0 })
+    return this._cache.prefetch(paths, res, opts)
+  }
+
+  clearPrepared() {
+    this._cache.clear()
+  }
+
   /**
-   * Replace a media-pool still.
+   * Replace a media-pool still with a PNG file.
    * @param {number} stillIndex 0-based (slot 1 = 0)
-   * @param {object} bufferInfo pre-encoded UploadBufferInfo from encoder.js
    */
-  async uploadStill(stillIndex, bufferInfo, name, description) {
+  async uploadFile(stillIndex, filePath, name, description) {
     if (this._status !== 'connected' || !this._atem) {
       const err = new Error('Not connected to the switcher')
       err.noRetry = true
       throw err
     }
-    await this._atem.uploadStill(stillIndex, bufferInfo, name, description)
+    const res = this.getResolution()
+    if (!res) throw new Error('Switcher video mode unknown')
+    const encoded = this._cache.get(filePath, res)
+    await this._atem.uploadStill(stillIndex, encoded, name, description)
   }
 }
 

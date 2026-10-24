@@ -74,9 +74,12 @@
         <h2>Settings</h2>
         <label class="field">
           <span>ATEM IP address</span>
-          <input id="set-ip" type="text" inputmode="decimal" spellcheck="false" required />
+          <input id="set-ip" type="text" inputmode="decimal" spellcheck="false" placeholder="e.g. 192.168.10.240" />
         </label>
-        <p class="note">Ethernet. For a direct laptop-to-ATEM cable, give the laptop a fixed address on the same subnet.</p>
+        <p class="note">
+          The app tries USB-C first (Blackmagic SDK), then Ethernet using this address. For a direct laptop-to-ATEM
+          Ethernet cable, give the laptop a fixed address on the same subnet. Leave empty for USB only.
+        </p>
         <label class="toggle">
           <input id="set-test" type="checkbox" />
           <span>Test mode (simulated switcher, no hardware)</span>

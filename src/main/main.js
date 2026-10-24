@@ -7,6 +7,8 @@ const { Config } = require('./config')
 const { Launcher } = require('./launcher')
 const { AtemBackend } = require('./backends/atemBackend')
 const { TestBackend } = require('./backends/testBackend')
+const { HelperBackend } = require('./backends/helperBackend')
+const { FallbackBackend } = require('./backends/fallbackBackend')
 
 const args = process.argv.slice(1)
 const SMOKE = args.includes('--smoke-test')
@@ -33,13 +35,29 @@ function send(channel, payload) {
   if (win && !win.isDestroyed()) win.webContents.send(channel, payload)
 }
 
+function helperPath() {
+  const exe = process.platform === 'win32' ? 'agl-helper.exe' : 'agl-helper'
+  if (app.isPackaged) return path.join(process.resourcesPath, 'helper', exe)
+  return path.join(__dirname, '..', '..', 'native', 'helper', 'dist', exe)
+}
+
 function makeBackend() {
-  return testMode ? new TestBackend() : new AtemBackend()
+  if (testMode) return new TestBackend()
+  return new FallbackBackend({
+    candidates: [
+      { name: 'SDK USB', create: () => new HelperBackend({ transport: 'usb', helperPath: helperPath() }) },
+      {
+        name: 'SDK Ethernet',
+        needsAddress: true,
+        create: () => new HelperBackend({ transport: 'network', helperPath: helperPath() }),
+      },
+      { name: 'atem-connection', needsAddress: true, create: () => new AtemBackend() },
+    ],
+  })
 }
 
 async function applyMode() {
   await launcher.setBackend(makeBackend())
-  launcher.cache.clear()
   if (launcher.folder) launcher.loadFolder(launcher.folder)
   await launcher.connect(testMode ? 'test-mode' : config.get('atemAddress'))
 }
@@ -118,14 +136,19 @@ function registerIpc() {
     version: app.getVersion(),
     sampleFolder: sampleFolder(),
     platform: process.platform,
-    connection: { status: launcher.backend.status, address: launcher.backend.address, testMode },
+    connection: {
+      status: launcher.backend.status,
+      address: launcher.backend.address,
+      transport: launcher.backend.transport,
+      testMode,
+    },
   }))
 
   ipcMain.handle('settings:save', async (_e, partial) => {
     const next = {}
     if (typeof partial?.atemAddress === 'string') next.atemAddress = partial.atemAddress.trim()
     const saved = config.set(next)
-    if (!testMode && next.atemAddress) await launcher.connect(next.atemAddress)
+    if (!testMode && next.atemAddress !== undefined) await launcher.connect(next.atemAddress)
     return saved
   })
 
@@ -176,6 +199,20 @@ async function runSmokeTest() {
     if (typeof lib.Atem.prototype.uploadStill !== 'function') return fail('atem-connection uploadStill missing')
     const real = new AtemBackend()
     if (real.getResolution() !== null) return fail('unexpected resolution on an unconnected switcher')
+    // Prove the SDK helper is bundled and answers. Without hardware the connect
+    // must fail cleanly (sdk_unavailable / connect_failed), never hang or crash.
+    const helper = new HelperBackend({ transport: 'usb', helperPath: helperPath(), connectTimeoutMs: 8000 })
+    let helperNote
+    try {
+      await helper.connect('')
+      helperNote = 'helper connected (unexpected without hardware)'
+      await helper.disconnect()
+    } catch (e) {
+      if (e.code === 'helper_missing' && process.env.AGL_REQUIRE_HELPER === '1') return fail(`helper missing at ${helperPath()}`)
+      if (e.code === 'timeout') return fail('helper did not answer')
+      helperNote = `helper ${helper.helperInfo ? `sdk=${helper.helperInfo.sdk}` : 'absent'}: ${e.message}`
+    }
+    console.log(`SMOKE: ${helperNote}`)
     const { files } = loadFolder(sampleFolder())
     if (files.length < 2) return fail('sample graphics missing')
     // Rapid clicks: only the first (already started) and the last should upload.

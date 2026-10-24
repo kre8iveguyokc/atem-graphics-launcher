@@ -3,3 +3,5 @@ dist/
 out/
 .DS_Store
 *.log
+native/helper/build/
+native/helper/dist/
