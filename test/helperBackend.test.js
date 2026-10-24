@@ -136,7 +136,13 @@ test('launcher + helper: latest click wins with one transfer at a time', { skip 
   for (const f of files) launcher.send(1, f.path)
   await launcher.controller.whenIdle()
   assert.deepEqual(log.done, [files[0].name, files[files.length - 1].name])
-  assert.equal(b.state.media.stillPool[0].fileName, files[files.length - 1].name.replace(/\.png$/i, ''))
+  // The helper pushes the new still name as a state event just after confirming the upload.
+  const expected = files[files.length - 1].name.replace(/\.png$/i, '')
+  const deadline = Date.now() + 3000
+  while (b.state.media.stillPool[0].fileName !== expected && Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 20))
+  }
+  assert.equal(b.state.media.stillPool[0].fileName, expected)
 })
 
 test('launcher + helper: a failed transfer is retried when nothing newer is waiting', { skip }, async (t) => {
