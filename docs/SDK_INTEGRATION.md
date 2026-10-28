@@ -2,7 +2,7 @@
 
 ## Status
 
-Implemented against the **Blackmagic ATEM Switchers SDK 11.0** (`native/helper/src/session_blackmagic.cpp`), built into the Windows and macOS helpers by CI. **Verified on an ATEM Mini Extreme ISO (2026-10-28)** over USB-C and Ethernet, transfers under 0.3 s.
+Implemented against the **Blackmagic ATEM Switchers SDK 11.0** (`native/helper/src/session_blackmagic.cpp`), built into the Windows and macOS helpers by CI. **Verified on an ATEM Mini Extreme ISO (2026-10-28)** over USB-C and Ethernet, transfers under 0.3 s, clean on-air replacement with no glitches or artifacts.
 
 ## What the helper does with the SDK
 
@@ -31,6 +31,5 @@ Nothing else is called. `test/noControl.test.js` fails the build if helper code 
 
 - USB-only connection, and Ethernet via the SDK.
 - Upload timing over USB vs Ethernet.
-- On-air swap is clean (no flash, tear or partial frame).
 - Behaviour when ATEM Software Control holds the stills lock.
 - Which ATEM Switchers software versions work with SDK 11.0 (oldest version that connects).

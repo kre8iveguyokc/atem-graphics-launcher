@@ -97,7 +97,7 @@ Test mode is never remembered: the app always starts in live mode.
 | Never sends control commands | Tested: source scans of the app and the native helper, plus a mock switcher that fails on any call except connect / upload. |
 | App launch, packaged native modules and helper | Smoke-tested on every build platform in CI. |
 | Upload to a real ATEM Mini Extreme ISO | **Verified on hardware (2026-10-28)** over both USB-C and Ethernet. Transfers under 0.3 s. |
-| On-air overwrite behaviour | Reported working in the hardware test. Blackmagic's SDK sample documents that a media player keeps the old still until the upload completes, then swaps. |
+| On-air overwrite behaviour | **Verified on hardware (2026-10-28):** replacing a still while the key is on air swaps cleanly, with no glitches or artifacts. |
 
 ## Development
 
