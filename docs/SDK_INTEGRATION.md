@@ -2,7 +2,7 @@
 
 ## Status
 
-Implemented against the **Blackmagic ATEM Switchers SDK 11.0** (`native/helper/src/session_blackmagic.cpp`), built into the Windows and macOS helpers by CI. **Not yet run against a real switcher**: see [HARDWARE_TEST.md](HARDWARE_TEST.md).
+Implemented against the **Blackmagic ATEM Switchers SDK 11.0** (`native/helper/src/session_blackmagic.cpp`), built into the Windows and macOS helpers by CI. **Verified on an ATEM Mini Extreme ISO (2026-10-28)** over USB-C and Ethernet, transfers under 0.3 s.
 
 ## What the helper does with the SDK
 
